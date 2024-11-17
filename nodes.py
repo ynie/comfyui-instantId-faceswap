@@ -45,16 +45,17 @@ class FaceEmbed:
     face_image = (255.0 * face_image.cpu().numpy().squeeze()).clip(0, 255).astype(np.uint8)
     face_info = insightface.get(cv2.cvtColor(face_image, cv2.COLOR_RGB2BGR))
 
-    assert len(face_info) > 0, "No face detected for face embed"
+    if len(face_info) > 0:
+      face_info = sorted(face_info, key=lambda x: (x["bbox"][2] - x["bbox"][0]) * (x["bbox"][3] - x["bbox"][1]))[-1] # only use the maximum face
+      face_emb = torch.tensor(face_info["embedding"], dtype=torch.float32).unsqueeze(0)
 
-    face_info = sorted(face_info, key=lambda x: (x["bbox"][2] - x["bbox"][0]) * (x["bbox"][3] - x["bbox"][1]))[-1] # only use the maximum face
-    face_emb = torch.tensor(face_info["embedding"], dtype=torch.float32).unsqueeze(0)
+      if face_embeds is None:
+        return (face_emb,)
 
-    if face_embeds is None:
-      return (face_emb,)
-
-    face_embeds = torch.cat((face_embeds, face_emb), dim=-2)
-    return (face_embeds,)
+      face_embeds = torch.cat((face_embeds, face_emb), dim=-2)
+      return (face_embeds,)
+    else:
+      return (None,)
 
 
 #==============================================================================
