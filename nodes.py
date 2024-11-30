@@ -170,6 +170,9 @@ class ComposeRotated:
 
 
 #==============================================================================
+INSTANT_ID_MODEL = None
+INSTANT_ID_RESAMPLER = None
+
 class LoadInstantIdAdapter:
   def __init__(self):
     pass
@@ -188,22 +191,28 @@ class LoadInstantIdAdapter:
   CATEGORY = CATEGORY_NAME
 
   def load_instantId_adapter(self, ipadapter):
-    ipadapter_path = folder_paths.get_full_path("ipadapter", ipadapter)
-    model = comfy.utils.load_torch_file(ipadapter_path, safe_load=True)
-    instantId = InstantId(model['ip_adapter'])
+    global INSTANT_ID_MODEL
+    global INSTANT_ID_RESAMPLER
 
-    resampler = Resampler(
-      dim=1280,
-      depth=4,
-      dim_head=64,
-      heads=20,
-      num_queries=16,
-      embedding_dim=512,
-      output_dim=2048,
-      ff_mult=4
-    )
-    resampler.load_state_dict(model["image_proj"])
-    return (instantId, resampler)
+    if not INSTANT_ID_RESAMPLER or not INSTANT_ID_MODEL:
+      print("SLOW! LOADING INSTANT ID MODEL")
+
+      ipadapter_path = folder_paths.get_full_path("ipadapter", ipadapter)
+      model = comfy.utils.load_torch_file(ipadapter_path, safe_load=True)
+      INSTANT_ID_MODEL = InstantId(model['ip_adapter'])
+
+      INSTANT_ID_RESAMPLER = Resampler(
+        dim=1280,
+        depth=4,
+        dim_head=64,
+        heads=20,
+        num_queries=16,
+        embedding_dim=512,
+        output_dim=2048,
+        ff_mult=4
+      )
+      INSTANT_ID_RESAMPLER.load_state_dict(model["image_proj"])
+    return (INSTANT_ID_MODEL, INSTANT_ID_RESAMPLER)
 
 
 #==============================================================================
@@ -480,6 +489,10 @@ class PreprocessImage(PreprocessImageAdvanced):
 
 
 #==============================================================================
+
+INSIGHT_FACE_APP = None
+
+
 class LoadInsightface:
   def __init__(self):
     pass
@@ -494,13 +507,18 @@ class LoadInsightface:
   CATEGORY = CATEGORY_NAME
 
   def load_insightface(self):
-    app = FaceAnalysis(
-      name="antelopev2",
-      root=INSIGHTFACE_PATH,
-      providers=["CPUExecutionProvider", "CUDAExecutionProvider"]
-    )
-    app.prepare(ctx_id=0, det_size=(640, 640))
-    return (app,)
+    global INSIGHT_FACE_APP
+
+    if not INSIGHT_FACE_APP:
+      print("SLOW: LOADING INSIGHT MODEL")
+
+      INSIGHT_FACE_APP = FaceAnalysis(
+        name="antelopev2",
+        root=INSIGHTFACE_PATH,
+        providers=["CPUExecutionProvider", "CUDAExecutionProvider"]
+      )
+      INSIGHT_FACE_APP.prepare(ctx_id=0, det_size=(640, 640))
+    return (INSIGHT_FACE_APP,)
 
 
 #==============================================================================
